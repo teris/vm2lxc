@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# PVE VM2LXC 1.0.0 — terminal frontend
+# SPDX-License-Identifier: MIT
+set -Eeuo pipefail
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+# All runtime artifacts stay under this installation / checkout, regardless of CWD.
+export PVE_VM2LXC_LOG_DIR="$ROOT_DIR/logs"
+export ENGINE_LOG_DIR="$PVE_VM2LXC_LOG_DIR"
+VERSION=$(cat "$ROOT_DIR/VERSION")
+source "$ROOT_DIR/lib/hardware.sh"
+source "$ROOT_DIR/lib/tui.sh"
+source "$ROOT_DIR/lib/engine.sh"
+source "$ROOT_DIR/lib/profiles.sh"
+usage() { cat <<USAGE
+PVE VM2LXC $VERSION
+Usage: pve-vm2lxc [--debug] [tui|plan|convert|activate|legacy-plan|list|storage|--version|--help]
+  tui          Full-screen bilingual (Ctrl+L toggles DE/EN) terminal UI with migration monitor
+  profiles      list | show FILE | run FILE | delete FILE (saved JSON migration plans)
+  finalize     Optional explicit deletion, separate from conversion
+  plan         Preflight analysis for an offline Linux import
+  convert      Create a stopped LXC from the source VM filesystem
+  activate     Start the LXC only if its source VM is stopped
+  --debug      Repeat y/n confirmations and write detailed logs
+  legacy-plan  Previous dialog-based migration planning wizard
+  list         Show local QEMU VMs
+  storage      Show Proxmox storages
+USAGE
+}
+if [[ ${1:-} == --debug ]]; then export ENGINE_DEBUG=1; shift; fi
+case ${1:-tui} in
+  --help|-h|help) usage ;;
+  --version|version) printf '%s\n' "$VERSION" ;;
+  plan|convert|activate|finalize) sub=$1; shift; engine_main "$sub" "$@" ;;
+  profiles) shift; case ${1:-list} in list) profile_list;; show) profile_load "${2:-}" && jq . "$(profiles_directory)/$2";; run) profile_run "${2:-}";; delete) profile_delete "${2:-}";; *) echo "Usage: profiles list|show FILE|run FILE|delete FILE" >&2; exit 2;; esac ;;
+  legacy-plan) exec bash "$ROOT_DIR/lib/legacy-planner.sh" tui ;;
+  list) command -v qm >/dev/null || { echo 'Proxmox qm not found' >&2; exit 1; }; qm list ;;
+  storage) command -v pvesm >/dev/null || { echo 'Proxmox pvesm not found' >&2; exit 1; }; pvesm status ;;
+  tui) command -v qm >/dev/null && command -v pvesm >/dev/null || { echo 'Only supported on a Proxmox VE host.' >&2; exit 1; }; tui_main ;;
+  *) usage >&2; exit 2 ;;
+esac

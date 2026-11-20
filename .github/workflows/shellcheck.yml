@@ -1,0 +1,19 @@
+name: Bash CI
+on:
+  push:
+  pull_request:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Syntax
+        run: bash -n bin/pve-vm2lxc lib/*.sh
+      - name: Static analysis (errors)
+        run: shellcheck -S error bin/pve-vm2lxc lib/*.sh
+      - name: Mock regression suite
+        run: |
+          set -e
+          for test in tests/test-*.sh; do bash "$test"; done

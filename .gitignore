@@ -1,0 +1,13 @@
+# Local runtime state - never publish host logs or migration profiles
+/logs/
+/profiles/
+*.tar
+*.tar.gz
+*.qcow2
+*.raw
+*.img
+*.pem
+*.key
+*.secret
+*.swp
+.DS_Store
